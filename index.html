@@ -1,0 +1,54 @@
+# Mention Local website
+
+A static, conversion-focused landing page designed for GitHub-connected Cloudflare Pages hosting.
+
+## Local preview
+
+```bash
+python3 -m http.server 8080
+```
+
+Open `http://127.0.0.1:8080`.
+
+## Deploy with GitHub and Cloudflare Pages
+
+1. Push this folder to a GitHub repository.
+2. In Cloudflare, open **Workers & Pages → Create → Pages → Connect to Git**.
+3. Select the repository. Use no build command and set the output directory to `/`.
+4. Create a D1 database named `mention-local-leads`.
+5. Run the contents of `schema.sql` in the D1 Console.
+6. In the Pages project, add a D1 binding named exactly `LEADS_DB` and select `mention-local-leads`.
+7. Create a free Resend account, verify a sending domain such as `notify.mentionlocal.com`, and create an API key.
+8. In the Pages project, open **Settings → Variables and Secrets** and add:
+   - Encrypted secret `RESEND_API_KEY`
+   - Variable `LEAD_NOTIFICATION_TO` with the inbox that should receive alerts
+   - Variable `LEAD_NOTIFICATION_FROM` with a verified sender such as `Mention Local <submissions@notify.mentionlocal.com>`
+9. Redeploy, then add `mentionlocal.com` under the project’s custom domains.
+
+The form posts to `/api/leads`. It stores the enquiry in D1 first, then sends a notification email through Resend. The submitted address is set as Reply-To, so the notification can be answered directly. If the email notification fails, the D1 record remains available. Without the D1 binding, the form shows a safe email fallback instead of losing the enquiry silently.
+
+## Accessing form submissions
+
+In Cloudflare, open **Workers & Pages → D1 → mention-local-leads → Console**, then run:
+
+```sql
+SELECT * FROM leads ORDER BY created_at DESC;
+```
+
+To mark a lead as handled:
+
+```sql
+UPDATE leads SET status = 'contacted' WHERE id = 1;
+```
+
+## Notification email cost
+
+Resend's free transactional plan currently includes 3,000 emails per month and up to 100 per day. That is more than enough for lead notifications at launch. Keep the API key only in Cloudflare's encrypted secrets—never in GitHub or browser JavaScript.
+
+## Before launch
+
+- Create and activate `hello@mentionlocal.com`.
+- Legally review `privacy.html` after confirming the business entity and operating address.
+- Test a real form submission after deployment and confirm it appears in D1.
+- Add Cloudflare Turnstile if bot submissions become a problem; the current form already has a honeypot.
+- Never add fabricated testimonials, client logos, review counts, or ranking guarantees.
